@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>shiphub · fork an idea, ship an app</title>
+  <meta name="description" content="A Pinterest-style board of app ideas worth building. Save them, discuss them, fork them, ship them.">
+  <link rel="stylesheet" href="/static/app.css">
+  <meta name="theme-color" content="#e5484d">
+  <script src="/static/theme.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#/" aria-label="shiphub home">
+        <span class="brand-icon"></span>
+        <span class="brand-word">ship<b>hub</b></span>
+        <span class="brand-tag">/inspo</span>
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="#/" data-nav="explore">Explore</a>
+        <a href="#/?status=shipped" data-nav="shipped">Shipped</a>
+      </nav>
+      <form class="search" role="search" autocomplete="off">
+        <span class="search-icon"></span>
+        <input id="search-input" type="search" placeholder="Search ideas, tags, stacks, people" aria-label="Search">
+        <kbd>/</kbd>
+      </form>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </div>
+  </header>
+
+  <main id="view" class="view"></main>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

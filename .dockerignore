@@ -1,0 +1,10 @@
+data/
+screenshots/
+__pycache__/
+*.pyc
+*.db
+*.db-wal
+*.db-shm
+config.env
+.git/
+start.bat

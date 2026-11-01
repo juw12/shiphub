@@ -1,0 +1,35 @@
+# Fly.io config. Run `fly launch --copy-config --no-deploy` once, then `fly deploy`.
+# Change the app name to something unique before launching.
+app = "shiphub-change-me"
+primary_region = "iad"
+
+[build]
+
+[env]
+  SHIPHUB_DEMO = "0"
+  TRUST_PROXY = "1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+# SQLite lives on this volume (create it with: fly volumes create shiphub_data --size 1).
+# If you set a DATABASE_URL secret for Postgres instead, the volume is unused.
+[[mounts]]
+  source = "shiphub_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

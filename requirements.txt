@@ -1,0 +1,2 @@
+# Only needed when DATABASE_URL points at Postgres. SQLite mode needs nothing.
+psycopg[binary]>=3.1,<4
