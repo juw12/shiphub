@@ -21,6 +21,12 @@ services:
         sync: false
       - key: SHIPHUB_ADMINS
         sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
 
 databases:
   - name: shiphub-db

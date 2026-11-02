@@ -680,7 +680,9 @@ function invalidateFeed() {
 function updateNav(path, params) {
   const shipped = path === "/" && params.get("status") === "shipped";
   $$("[data-nav]").forEach((link) => {
-    const active = link.dataset.nav === "shipped" ? shipped : path === "/" && !shipped;
+    let active = path === "/" && !shipped;
+    if (link.dataset.nav === "shipped") active = shipped;
+    if (link.dataset.nav === "hq") active = path === "/hq" || path.startsWith("/hq/");
     link.classList.toggle("active", active);
   });
   const searchInput = $("#search-input");
@@ -720,12 +722,16 @@ function route() {
   }
 
   window.scrollTo(0, 0);
+  if (path === "/hq" || path.startsWith("/hq/")) {
+    renderHQ(path.slice(3), params, isCurrent);
+    return;
+  }
   let match = path.match(/^\/i\/(\d+)$/);
   if (match) {
     renderIdea(Number(match[1]), isCurrent);
     return;
   }
-  match = path.match(/^\/u\/([A-Za-z0-9_]+)(?:\/(ideas|builds|boards))?$/);
+  match = path.match(/^\/u\/([A-Za-z0-9_]+)(?:\/(ideas|builds|boards|hq))?$/);
   if (match) {
     renderProfile(match[1], match[2] || "ideas", isCurrent);
     return;
@@ -1342,10 +1348,11 @@ async function renderProfile(username, tab, isCurrent) {
         <div class="profile-handle">@${esc(user.username)} · joined ${formatJoined(user.created_at)}</div>
         ${user.github_login ? `<a class="profile-gh" href="https://github.com/${encodeURIComponent(user.github_login)}" target="_blank" rel="noopener noreferrer">${icon("github", 14)} ${esc(user.github_login)}</a>` : ""}
         ${user.bio ? `<p class="profile-bio">${esc(user.bio)}</p>` : own ? `<p class="profile-bio muted">Add a short bio so people know what you build.</p>` : ""}
+        ${hqProfileLine(data)}
         <div class="profile-stats">${stat(stats.ideas, "Ideas")}${stat(stats.upvotes, "Upvotes")}${stat(stats.building, "Building")}${stat(stats.shipped, "Shipped")}</div>
-        ${own ? `<button class="btn btn-secondary btn-sm" data-edit-profile>${icon("pencil", 14)} Edit profile</button>` : ""}
+        ${own ? `<button class="btn btn-secondary btn-sm" data-edit-profile>${icon("pencil", 14)} Edit profile</button>` : `<div class="profile-actions" data-profile-actions></div>`}
       </header>
-      <nav class="tabs">${[["ideas", "Ideas"], ["builds", "Builds"], ["boards", "Boards"]]
+      <nav class="tabs">${[["ideas", "Ideas"], ["builds", "Builds"], ["boards", "Boards"], ["hq", "HQ"]]
         .map(([key, label]) => `<a class="tab ${tab === key ? "active" : ""}" href="#/u/${esc(user.username)}/${key}">${label}</a>`)
         .join("")}</nav>
       <div class="profile-body"></div>
@@ -1357,7 +1364,14 @@ async function renderProfile(username, tab, isCurrent) {
     editButton.addEventListener("click", () => openEditProfile());
   }
 
+  const actions = $("[data-profile-actions]", page);
+  if (actions) hqProfileActions(actions, user.username);
+
   const body = $(".profile-body", page);
+  if (tab === "hq") {
+    hqRenderProfileTab(body, user.username);
+    return;
+  }
   if (tab === "boards") {
     renderBoardGrid(body, user, own);
     return;
@@ -1681,6 +1695,7 @@ async function openBoardPicker(ideaId, anchor) {
 }
 
 function notificationText(item) {
+  if (item.kind === "hq") return esc(item.text);
   const who = `<strong>${esc(item.actor.display_name)}</strong>`;
   const what = `<strong>${esc(item.idea_title || "an idea")}</strong>`;
   switch (item.kind) {
@@ -1705,8 +1720,8 @@ async function openNotifications(anchor) {
   try {
     const { items } = await api("GET", "/api/notifications");
     $(".notif-list", node).innerHTML = items.length
-      ? items.map((item) => `<a class="notif ${item.is_read ? "" : "unread"}" href="#/i/${item.idea_id}">${avatar(item.actor, 34)}<div><div>${notificationText(item)}</div><div class="notif-time">${timeAgo(item.created_at)}</div></div></a>`).join("")
-      : `<div class="popover-empty">You're all caught up. Replies, builders and forks on your ideas show up here.</div>`;
+      ? items.map((item) => `<a class="notif ${item.is_read ? "" : "unread"}" href="${item.kind === "hq" ? `#/${esc(item.link || "hq")}` : `#/i/${item.idea_id}`}">${avatar(item.actor, 34)}<div><div>${notificationText(item)}</div><div class="notif-time">${timeAgo(item.created_at)}</div></div></a>`).join("")
+      : `<div class="popover-empty">You're all caught up. Replies, builders, forks, friends, chats, agents and sales show up here.</div>`;
     repositionPopover();
     if (state.unread) {
       await api("POST", "/api/notifications/read");
@@ -1726,6 +1741,8 @@ function openUserMenu(anchor) {
       <a class="menu-item" href="#/u/${esc(me.username)}">${icon("user", 16)} Your ideas</a>
       <a class="menu-item" href="#/u/${esc(me.username)}/builds">${icon("hammer", 16)} Your builds</a>
       <a class="menu-item" href="#/u/${esc(me.username)}/boards">${icon("grid", 16)} Your boards</a>
+      <a class="menu-item" href="#/hq/agents">${icon("cpu", 16)} Your devices &amp; agents</a>
+      <a class="menu-item" href="#/hq/settings">${icon("settings", 16)} HQ settings</a>
       <div class="menu-sep"></div>
       <button class="menu-item" data-action="toggle-theme">${icon(dark ? "sun" : "moon", 16)} ${dark ? "Light" : "Dark"} mode</button>
       <button class="menu-item" data-action="new-idea">${icon("plus", 16)} New idea <kbd>N</kbd></button>
@@ -2376,6 +2393,7 @@ function handleAuthRedirect() {
 }
 
 async function boot() {
+  hqEnsureIcons();
   $(".brand-icon").innerHTML = icon("rocket", 22);
   $(".search-icon").innerHTML = icon("search", 18);
   setFavicon();

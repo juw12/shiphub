@@ -8,3 +8,5 @@ __pycache__/
 config.env
 .git/
 start.bat
+tests/
+shiphub-agent-audit.log

@@ -35,6 +35,8 @@ import urllib.request
 import webbrowser
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import hq
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -83,6 +85,8 @@ class Settings:
         self.github_api_url = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
         self.demo = env_flag("SHIPHUB_DEMO", True)
         self.seed = env_flag("SHIPHUB_SEED", True)
+        # Account (username or GitHub login) that owns the featured projects below. Empty disables.
+        self.owner = os.environ.get("SHIPHUB_OWNER", "juw12").strip()
         self.trust_proxy = env_flag("TRUST_PROXY", False)
         self.rate_limits = env_flag("SHIPHUB_RATE_LIMITS", True)
         self.admins = {
@@ -470,6 +474,7 @@ def init_db(reset: bool = False) -> None:
             db.conn.execute(POST_MIGRATION_SQL)
             if SETTINGS.seed and db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
                 seed(db)
+            ensure_owner_projects(db)
             db.commit()
         finally:
             db.close()
@@ -493,6 +498,7 @@ def init_db(reset: bool = False) -> None:
         db.conn.executescript(POST_MIGRATION_SQL)
         if SETTINGS.seed and db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
             seed(db)
+        ensure_owner_projects(db)
         db.commit()
     finally:
         db.close()
@@ -941,6 +947,10 @@ class Ctx:
         self.raw = raw
         self.secure = secure
         self.set_cookies: list[str] = []
+        self.headers = {}
+        self.client_ip = ""
+        self.base_url = ""
+        self.session_token = params.get("_session_token") if isinstance(params, dict) else None
 
     @property
     def viewer_id(self) -> int:
@@ -978,8 +988,8 @@ def create_session(db, user_id: int) -> str:
     token = secrets.token_urlsafe(32)
     now = time.time()
     db.execute(
-        "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
-        (token, user_id, now + SESSION_SECONDS),
+        "INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
+        (token, user_id, now + SESSION_SECONDS, now),
     )
     if random.random() < 0.05:
         db.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
@@ -1019,6 +1029,7 @@ def signup(ctx: Ctx):
         "VALUES (?, ?, ?, ?, ?, ?)",
         (username, display_name, random.randint(0, 359), digest, salt, time.time()),
     )
+    ensure_owner_projects(ctx.db)
     start_session(ctx, user_id)
     row = ctx.db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     return {"user": user_private(row), "unread": 0}
@@ -1210,6 +1221,7 @@ def create_idea(ctx: Ctx):
     )
     if parent:
         notify(ctx.db, parent["user_id"], ctx.user["id"], "fork", idea_id)
+    hq.award_xp(ctx.db, ctx.user["id"], "idea", ref=f"idea:{idea_id}")
     return idea_detail(ctx.db, idea_id, ctx.viewer_id)
 
 
@@ -1286,6 +1298,7 @@ def create_comment(ctx: Ctx):
         notify(ctx.db, parent["user_id"], ctx.user["id"], "reply", idea["id"], comment_id)
     if not parent or parent["user_id"] != idea["user_id"]:
         notify(ctx.db, idea["user_id"], ctx.user["id"], "comment", idea["id"], comment_id)
+    hq.award_xp(ctx.db, ctx.user["id"], "comment", ref=f"comment:{comment_id}")
     return {"id": comment_id}
 
 
@@ -1356,6 +1369,8 @@ def upsert_build(ctx: Ctx):
         )
     if not existing or existing["status"] != status:
         notify(ctx.db, idea["user_id"], ctx.user["id"], "shipped" if status == "shipped" else "build", idea["id"])
+    if status == "shipped":
+        hq.award_xp(ctx.db, ctx.user["id"], "idea_shipped", ref=f"build:{idea['id']}")
     return {"ok": True}
 
 
@@ -1491,7 +1506,7 @@ def get_user(ctx: Ctx):
         """,
         {"u": row["id"]},
     ).fetchone()
-    return {"user": user_public(row), "stats": dict(stats)}
+    return {"user": user_public(row), "stats": dict(stats), "hq": hq.hq_user(row)}
 
 
 @route("GET", "/api/tags")
@@ -1530,7 +1545,7 @@ def random_idea(ctx: Ctx):
 def list_notifications(ctx: Ctx):
     rows = ctx.db.execute(
         """
-        SELECT n.id, n.kind, n.idea_id, n.comment_id, n.is_read, n.created_at,
+        SELECT n.id, n.kind, n.idea_id, n.comment_id, n.is_read, n.created_at, n.text, n.link,
                a.id AS user_id, a.username, a.display_name, a.avatar_hue, a.avatar_url, i.title AS idea_title
         FROM notifications n
         JOIN users a ON a.id = n.actor_id
@@ -1549,6 +1564,8 @@ def list_notifications(ctx: Ctx):
             "is_read": bool(row["is_read"]),
             "created_at": row["created_at"],
             "actor": author_of(row),
+            "text": row["text"],
+            "link": row["link"],
         }
         for row in rows
     ]
@@ -1653,6 +1670,7 @@ def github_sign_in(db, profile: dict, current_user) -> tuple[int, str]:
             "UPDATE users SET github_id = ?, github_login = ?, avatar_url = ? WHERE id = ?",
             (github_id, login, refreshed_avatar(current_user), current_user["id"]),
         )
+        ensure_owner_projects(db)
         return current_user["id"], "linked"
 
     if existing:
@@ -1660,6 +1678,7 @@ def github_sign_in(db, profile: dict, current_user) -> tuple[int, str]:
             "UPDATE users SET github_login = ?, avatar_url = ? WHERE id = ?",
             (login, refreshed_avatar(existing), existing["id"]),
         )
+        ensure_owner_projects(db)
         return existing["id"], "login"
 
     display_name = str(profile.get("name") or login).strip()[:40] or login
@@ -1669,6 +1688,7 @@ def github_sign_in(db, profile: dict, current_user) -> tuple[int, str]:
         "password_salt, github_id, github_login, created_at) VALUES (?, ?, ?, ?, ?, '', '', ?, ?, ?)",
         (unique_username(db, login), display_name, bio, random.randint(0, 359), avatar, github_id, login, time.time()),
     )
+    ensure_owner_projects(db)
     return user_id, "signup"
 
 
@@ -1711,6 +1731,43 @@ class RateLimiter:
 
 
 RATE_LIMITER = RateLimiter()
+# --------------------------------------------------------------------------- #
+# HQ (agents, feed, ladder, friends, chat, market) - one app, one database
+# --------------------------------------------------------------------------- #
+
+hq.bind(api_error=ApiError, connect_fn=connect, settings=SETTINGS)
+SCHEMA += hq.SCHEMA
+MIGRATIONS += hq.MIGRATIONS
+POST_MIGRATION_SQL += hq.POST_MIGRATION_SQL
+for _method, _path, _func, _auth, _raw in hq.ROUTES:
+    route(_method, _path, auth=_auth, raw=_raw)(_func)
+
+
+@route("POST", "/api/account/password", auth=True)
+def change_password(ctx: Ctx):
+    user = ctx.user
+    new_password = ctx.body.get("new_password") or ""
+    if not isinstance(new_password, str) or len(new_password) < 8:
+        raise ApiError(400, "Password must be at least 8 characters")
+    if len(new_password) > 128:
+        raise ApiError(400, "Password is too long")
+    if user["password_hash"]:
+        current = ctx.body.get("current_password") or ""
+        if not isinstance(current, str) or not verify_password(current, user["password_hash"], user["password_salt"]):
+            raise ApiError(403, "Current password is wrong")
+    elif not hq.session_is_fresh(ctx):
+        raise ApiError(403, "For safety, sign in with GitHub again and set a password within 10 minutes")
+    digest, salt = hash_password(new_password)
+    ctx.db.execute(
+        "UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?", (digest, salt, user["id"])
+    )
+    revoked = ctx.db.execute(
+        "DELETE FROM sessions WHERE user_id = ? AND token != ?", (user["id"], ctx.session_token or "")
+    ).rowcount
+    hq.notify(ctx.db, user["id"], "🔐 Your password was changed - other devices were signed out", "hq/settings")
+    return {"ok": True, "signed_out_sessions": revoked}
+
+
 RATE_RULES = {
     "auth": (20, 300),     # log in / sign up / GitHub: 20 per 5 minutes per IP
     "write": (90, 60),     # any write: 90 per minute per IP
@@ -1804,6 +1861,9 @@ class Handler(BaseHTTPRequestHandler):
     def dispatch(self, method: str) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        if path == "/api/hq/stream" and method == "GET":
+            self.serve_hq_stream()
+            return
         if path.startswith("/api/"):
             self.handle_api(method, parsed)
             return
@@ -1819,8 +1879,49 @@ class Handler(BaseHTTPRequestHandler):
             self.github_callback(parsed)
         elif path.startswith("/uploads/"):
             self.serve_upload(path)
+        elif path in ("/sw.js", "/manifest.webmanifest"):
+            # The service worker must live at the root so it can show pushes for the whole site.
+            self.serve_static("/static" + path)
         else:
             self.serve_static(path)
+
+    # ----- HQ live events (server-sent events) ----- #
+
+    def serve_hq_stream(self) -> None:
+        db = connect()
+        try:
+            user = self.current_user(db, self.session_token())
+        finally:
+            db.close()
+        if not user:
+            self.send_json(401, {"error": "Log in to do that"})
+            return
+        if hq.HUB.stream_count(user["id"]) >= hq.MAX_STREAMS_PER_USER:
+            self.send_json(429, {"error": "Too many open live connections"})
+            return
+        events = hq.HUB.subscribe(user["id"])
+        self.close_connection = True
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            self.wfile.write(b"retry: 3000\n\n")
+            self.wfile.flush()
+            while True:
+                try:
+                    event = events.get(timeout=15)
+                    chunk = f"data: {json.dumps(event)}\n\n"
+                except queue.Empty:
+                    chunk = ": keepalive\n\n"
+                self.wfile.write(chunk.encode())
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+            pass
+        finally:
+            hq.HUB.unsubscribe(user["id"], events)
 
     # ----- API ----- #
 
@@ -1895,7 +1996,10 @@ class Handler(BaseHTTPRequestHandler):
             body: dict = {}
             raw_body = None
             if method != "GET":
-                if raw:
+                if raw == "webhook":
+                    # Signed server-to-server calls (Stripe): raw bytes, no browser checks.
+                    raw_body = self.read_raw()
+                elif raw:
                     raw_body = self.read_raw()
                     self.check_upload_request()
                 else:
@@ -1917,16 +2021,23 @@ class Handler(BaseHTTPRequestHandler):
                 raw=raw_body,
                 secure=self.is_https(),
             )
+            ctx.headers = self.headers
+            ctx.client_ip = self.client_ip()
+            ctx.base_url = self.base_url()
             if auth_required:
                 ctx.require_user()
+            hq.begin_request()
             result = func(ctx)
             db.commit()
+            hq.end_request(committed=True)
             self.send_json(200, result, ctx.set_cookies)
         except ApiError as error:
+            hq.end_request(committed=False)
             if db is not None:
                 db.rollback()
             self.send_json(error.status, {"error": error.message})
         except Exception:  # noqa: BLE001 - last-resort guard so the server stays up
+            hq.end_request(committed=False)
             if db is not None:
                 try:
                     db.rollback()
@@ -2304,7 +2415,7 @@ SEED_COMMENTS = {
     ],
 }
 
-# idea index -> list of (builder, status, note)
+# idea index -> list of (builder, status, note[, repo_url, demo_url])
 SEED_BUILDS = {
     1: [("devon", "shipped", "Live with SVG README badge."), ("sol", "building", "Working on seasons + rare plants.")],
     7: [("kai", "shipped", "v0.2 has roast intensity levels.")],
@@ -2322,6 +2433,99 @@ SEED_BOARDS = [
     ("maya", "Dev tools I want", "", [12, 16, 22, 18]),
     ("ari", "Pretty things", "", [11, 4, 1]),
 ]
+
+
+# Projects the site owner is building. They are attached to SETTINGS.owner whenever that
+# account exists (on startup, sign-up and GitHub sign-in), including on an existing database.
+OWNER_PROJECTS = [
+    {
+        "title": "vibeHQ: social HQ for vibe coders",
+        "pitch": "Monitor and command your AI coding agents from your phone, ship in public, "
+                 "climb a verified ladder, chat and sell.",
+        "tags": ["ai", "social", "devtools"],
+        "stack": "Python stdlib · SQLite · SSE · Stripe Connect · Web Push",
+        "scope": 2,
+        "cover": 3,
+        "features": [
+            "Device bridge: see running agents (Claude Code, Codex, Cursor, Ollama...) and send them tasks",
+            "Feed of ships, tips and news with GitHub-verified ships",
+            "XP ladder (global / country / friends), friends + realtime chat",
+            "Marketplace with Stripe Connect payouts, installable phone app with push",
+        ],
+        "twist": "Remote commands need a separate PIN and can require on-device approval, "
+                 "so a stolen login can't run code.",
+        "status": "building",
+        "note": "Feed, ladder, agents, chat, market, Stripe, GitHub verify, push and security "
+                "hardening done. Next: deploy + first testers.",
+        "repo_url": "https://github.com/juw12/shiphub",
+        "demo_url": "",
+    },
+]
+
+
+def find_owner(db):
+    owner = SETTINGS.owner
+    if not owner:
+        return None
+    # A linked GitHub login is the strongest signal; fall back to the shiphub username.
+    row = db.execute(
+        "SELECT id FROM users WHERE lower(github_login) = lower(?) ORDER BY id LIMIT 1", (owner,)
+    ).fetchone()
+    if row is None:
+        row = db.execute("SELECT id FROM users WHERE lower(username) = lower(?)", (owner,)).fetchone()
+    return row["id"] if row else None
+
+
+def ensure_owner_projects(db) -> int:
+    """Make sure the owner's featured projects exist and show on their Builds tab. Idempotent."""
+    owner_id = find_owner(db)
+    if owner_id is None:
+        return 0
+    added = 0
+    now = time.time()
+    for project in OWNER_PROJECTS:
+        row = db.execute(
+            "SELECT id FROM ideas WHERE user_id = ? AND title = ? AND deleted = 0 ORDER BY id LIMIT 1",
+            (owner_id, project["title"]),
+        ).fetchone()
+        if row:
+            idea_id = row["id"]
+        else:
+            body = (
+                "### Core features\n"
+                + "\n".join(f"- {item}" for item in project["features"])
+                + f"\n\n### The twist\n{project['twist']}"
+            )
+            idea_id = db.insert(
+                "INSERT INTO ideas (user_id, title, pitch, body, stack, scope, cover_style, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (owner_id, project["title"], project["pitch"], body, project["stack"],
+                 project["scope"], project["cover"], now, now),
+            )
+            db.executemany(
+                "INSERT INTO idea_tags (idea_id, tag, pos) VALUES (?, ?, ?)",
+                [(idea_id, tag, pos) for pos, tag in enumerate(project["tags"])],
+            )
+            db.execute(
+                "INSERT INTO idea_votes (idea_id, user_id, created_at) VALUES (?, ?, ?)",
+                (idea_id, owner_id, now),
+            )
+        has_build = db.execute(
+            "SELECT 1 FROM builds WHERE idea_id = ? AND user_id = ?", (idea_id, owner_id)
+        ).fetchone()
+        db.execute(
+            "UPDATE builds SET repo_url = ? WHERE idea_id = ? AND user_id = ? AND repo_url LIKE ?",
+            (project["repo_url"], idea_id, owner_id, "%/tree/main/vibehq"),
+        )
+        if not has_build:
+            db.execute(
+                "INSERT INTO builds (idea_id, user_id, status, repo_url, demo_url, note, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (idea_id, owner_id, project["status"], project["repo_url"], project["demo_url"],
+                 project["note"], now, now),
+            )
+            added += 1
+    return added
 
 
 def seed(db) -> None:
@@ -2389,12 +2593,15 @@ def seed(db) -> None:
         add_comments(idea_ids[index], entries)
 
     for index, builds in SEED_BUILDS.items():
-        for builder, status, note in builds:
+        for entry in builds:
+            builder, status, note = entry[:3]
+            repo_url = entry[3] if len(entry) > 3 else ""
+            demo_url = entry[4] if len(entry) > 4 else ""
             stamp = now - rng.randint(1, 48) * 3600
             db.execute(
-                "INSERT INTO builds (idea_id, user_id, status, note, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (idea_ids[index], user_ids[builder], status, note, stamp, stamp),
+                "INSERT INTO builds (idea_id, user_id, status, repo_url, demo_url, note, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (idea_ids[index], user_ids[builder], status, repo_url, demo_url, note, stamp, stamp),
             )
 
     for owner, name, description, items in SEED_BOARDS:
@@ -2407,6 +2614,8 @@ def seed(db) -> None:
                 "INSERT INTO board_items (board_id, idea_id, created_at) VALUES (?, ?, ?)",
                 (board_id, idea_ids[index], now - 3600 * (offset + 1)),
             )
+
+    hq.seed_demo(db, user_ids)
 
     demo_id = user_ids["demo"]
     demo_idea = db.insert(
@@ -2507,6 +2716,7 @@ def main() -> None:
     print(f"  GitHub sign-in: {'on' if SETTINGS.github_enabled else 'off (set GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET)'}", flush=True)
     if SETTINGS.demo:
         print("  demo login: demo / demo1234", flush=True)
+    hq.start_background()
     print("  Ctrl+C to stop\n", flush=True)
     if not args.no_browser:
         threading.Timer(0.8, webbrowser.open, [f"http://{shown_host}:{server.server_port}/"]).start()
@@ -2516,6 +2726,7 @@ def main() -> None:
         print("\n  Stopped.")
     finally:
         server.server_close()
+
 
 
 if __name__ == "__main__":

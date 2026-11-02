@@ -13,7 +13,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py .
+COPY server.py hq.py webpush.py github_client.py stripe_client.py agent.py ./
 COPY static ./static
 
 RUN useradd --create-home --uid 10001 shiphub \
