@@ -1,0 +1,8 @@
+{$DOMAIN} {
+	encode gzip
+
+	reverse_proxy app:8787 {
+		# stream server-sent events (live chat/agents) immediately
+		flush_interval -1
+	}
+}

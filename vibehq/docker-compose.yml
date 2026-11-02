@@ -1,0 +1,36 @@
+# vibeHQ production stack: app + Caddy (automatic HTTPS via Let's Encrypt).
+# Usage:  cp .env.example .env   (fill it in, set DOMAIN + PUBLIC_URL)
+#         docker compose up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TRUST_PROXY: "1"            # client IPs come from Caddy's X-Forwarded-For
+      VIBEHQ_DB: /data/vibehq.db
+    volumes:
+      - vibehq-data:/data
+    expose:
+      - "8787"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. vibehq.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  vibehq-data:
+  caddy-data:
+  caddy-config:

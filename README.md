@@ -10,6 +10,21 @@ boards, notifications, GitHub sign-in and image uploads.
 | --- | --- | --- |
 | ![Idea page](screenshots/04-idea-with-uploaded-cover.png) | ![Sign in](screenshots/01-auth-modal-github.png) | ![Profile](screenshots/06-profile-with-avatar.png) |
 
+## Building: vibeHQ
+
+[`vibehq/`](vibehq/) is a project I'm building on shiphub: a social HQ for vibe coders.
+It shows up in the demo profile's **Building** tab.
+
+- Monitor and command your own AI coding agents (Claude Code, Codex, Cursor, Ollama…) from any device
+- Feed of ships, tips and news, with **GitHub-verified ships**
+- XP ladder (global / country / friends), friends and realtime chat
+- Marketplace with Stripe Connect payouts, installable phone app with push notifications
+- Security: command PIN, on-device approval, hashed sessions, rate limits
+
+Zero dependencies. Run it with `cd vibehq && python server.py --demo` and open http://127.0.0.1:8787
+(login `alice` / `demo1234`). Tests: `python tests/run_tests.py` (79 end-to-end checks).
+Deploy guide: [`vibehq/DEPLOY.md`](vibehq/DEPLOY.md).
+
 ## Run it locally
 
 Double-click `start.bat`, or:

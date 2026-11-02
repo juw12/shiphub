@@ -2257,6 +2257,14 @@ SEED_IDEAS = [
      ["community", "devtools", "social"], "Next.js · Postgres", 1, 9, 10, 2,
      ["List a project with repo + why it died", "\"Adopt\" button transfers context", "Revival stories feed"],
      "Original author gets a credit badge when it ships."),
+    ("demo", "vibeHQ: social HQ for vibe coders",
+     "Monitor and command your AI coding agents from your phone, ship in public, climb a verified ladder, chat and sell.",
+     ["ai", "social", "devtools"], "Python stdlib · SQLite · SSE · Stripe Connect · Web Push", 2, 3, 10, 1,
+     ["Device bridge: see running agents (Claude Code, Codex, Cursor, Ollama...) and send them tasks",
+      "Feed of ships, tips and news with GitHub-verified ships",
+      "XP ladder (global / country / friends), friends + realtime chat",
+      "Marketplace with Stripe Connect payouts, installable phone app with push"],
+     "Remote commands need a separate PIN and can require on-device approval, so a stolen login can't run code."),
 ]
 
 # idea index -> list of (author, text, hours_ago, replies)
@@ -2304,7 +2312,7 @@ SEED_COMMENTS = {
     ],
 }
 
-# idea index -> list of (builder, status, note)
+# idea index -> list of (builder, status, note[, repo_url, demo_url])
 SEED_BUILDS = {
     1: [("devon", "shipped", "Live with SVG README badge."), ("sol", "building", "Working on seasons + rare plants.")],
     7: [("kai", "shipped", "v0.2 has roast intensity levels.")],
@@ -2312,6 +2320,8 @@ SEED_BUILDS = {
     17: [("maya", "shipped", "Runs on my team's repos. Haikus are surprisingly good.")],
     22: [("ari", "shipped", "Single HTML file, no deps."), ("demo", "building", "")],
     12: [("omar", "building", "Python + tree-sitter backend done, UI next.")],
+    24: [("demo", "building", "Feed, ladder, agents, chat, market, Stripe, GitHub verify, push and security hardening done. Next: deploy + first testers.",
+          "https://github.com/juw12/shiphub/tree/main/vibehq", "")],
 }
 
 SEED_FORKS = {19: 1}  # Tab Garden is a fork of Commit Garden
@@ -2389,12 +2399,15 @@ def seed(db) -> None:
         add_comments(idea_ids[index], entries)
 
     for index, builds in SEED_BUILDS.items():
-        for builder, status, note in builds:
+        for entry in builds:
+            builder, status, note = entry[:3]
+            repo_url = entry[3] if len(entry) > 3 else ""
+            demo_url = entry[4] if len(entry) > 4 else ""
             stamp = now - rng.randint(1, 48) * 3600
             db.execute(
-                "INSERT INTO builds (idea_id, user_id, status, note, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (idea_ids[index], user_ids[builder], status, note, stamp, stamp),
+                "INSERT INTO builds (idea_id, user_id, status, repo_url, demo_url, note, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (idea_ids[index], user_ids[builder], status, repo_url, demo_url, note, stamp, stamp),
             )
 
     for owner, name, description, items in SEED_BOARDS:
