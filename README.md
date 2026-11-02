@@ -13,7 +13,7 @@ boards, notifications, GitHub sign-in and image uploads.
 ## Building: vibeHQ
 
 [`vibehq/`](vibehq/) is a project I'm building on shiphub: a social HQ for vibe coders.
-It shows up in the demo profile's **Building** tab.
+It shows up on my profile's **Builds** tab (`#/u/juw12/builds`). Whenever the `juw12` account exists (signed up or signed in with GitHub), the server makes sure the idea and the build entry are there, including on an existing database. Set `SHIPHUB_OWNER` to change the owner, or set it empty to turn this off.
 
 - Monitor and command your own AI coding agents (Claude Code, Codex, Cursor, Ollama…) from any device
 - Feed of ships, tips and news, with **GitHub-verified ships**

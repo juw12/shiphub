@@ -83,6 +83,8 @@ class Settings:
         self.github_api_url = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
         self.demo = env_flag("SHIPHUB_DEMO", True)
         self.seed = env_flag("SHIPHUB_SEED", True)
+        # Account (username or GitHub login) that owns the featured projects below. Empty disables.
+        self.owner = os.environ.get("SHIPHUB_OWNER", "juw12").strip()
         self.trust_proxy = env_flag("TRUST_PROXY", False)
         self.rate_limits = env_flag("SHIPHUB_RATE_LIMITS", True)
         self.admins = {
@@ -470,6 +472,7 @@ def init_db(reset: bool = False) -> None:
             db.conn.execute(POST_MIGRATION_SQL)
             if SETTINGS.seed and db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
                 seed(db)
+            ensure_owner_projects(db)
             db.commit()
         finally:
             db.close()
@@ -493,6 +496,7 @@ def init_db(reset: bool = False) -> None:
         db.conn.executescript(POST_MIGRATION_SQL)
         if SETTINGS.seed and db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
             seed(db)
+        ensure_owner_projects(db)
         db.commit()
     finally:
         db.close()
@@ -1019,6 +1023,7 @@ def signup(ctx: Ctx):
         "VALUES (?, ?, ?, ?, ?, ?)",
         (username, display_name, random.randint(0, 359), digest, salt, time.time()),
     )
+    ensure_owner_projects(ctx.db)
     start_session(ctx, user_id)
     row = ctx.db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     return {"user": user_private(row), "unread": 0}
@@ -1653,6 +1658,7 @@ def github_sign_in(db, profile: dict, current_user) -> tuple[int, str]:
             "UPDATE users SET github_id = ?, github_login = ?, avatar_url = ? WHERE id = ?",
             (github_id, login, refreshed_avatar(current_user), current_user["id"]),
         )
+        ensure_owner_projects(db)
         return current_user["id"], "linked"
 
     if existing:
@@ -1660,6 +1666,7 @@ def github_sign_in(db, profile: dict, current_user) -> tuple[int, str]:
             "UPDATE users SET github_login = ?, avatar_url = ? WHERE id = ?",
             (login, refreshed_avatar(existing), existing["id"]),
         )
+        ensure_owner_projects(db)
         return existing["id"], "login"
 
     display_name = str(profile.get("name") or login).strip()[:40] or login
@@ -1669,6 +1676,7 @@ def github_sign_in(db, profile: dict, current_user) -> tuple[int, str]:
         "password_salt, github_id, github_login, created_at) VALUES (?, ?, ?, ?, ?, '', '', ?, ?, ?)",
         (unique_username(db, login), display_name, bio, random.randint(0, 359), avatar, github_id, login, time.time()),
     )
+    ensure_owner_projects(db)
     return user_id, "signup"
 
 
@@ -2257,14 +2265,6 @@ SEED_IDEAS = [
      ["community", "devtools", "social"], "Next.js · Postgres", 1, 9, 10, 2,
      ["List a project with repo + why it died", "\"Adopt\" button transfers context", "Revival stories feed"],
      "Original author gets a credit badge when it ships."),
-    ("demo", "vibeHQ: social HQ for vibe coders",
-     "Monitor and command your AI coding agents from your phone, ship in public, climb a verified ladder, chat and sell.",
-     ["ai", "social", "devtools"], "Python stdlib · SQLite · SSE · Stripe Connect · Web Push", 2, 3, 10, 1,
-     ["Device bridge: see running agents (Claude Code, Codex, Cursor, Ollama...) and send them tasks",
-      "Feed of ships, tips and news with GitHub-verified ships",
-      "XP ladder (global / country / friends), friends + realtime chat",
-      "Marketplace with Stripe Connect payouts, installable phone app with push"],
-     "Remote commands need a separate PIN and can require on-device approval, so a stolen login can't run code."),
 ]
 
 # idea index -> list of (author, text, hours_ago, replies)
@@ -2320,8 +2320,6 @@ SEED_BUILDS = {
     17: [("maya", "shipped", "Runs on my team's repos. Haikus are surprisingly good.")],
     22: [("ari", "shipped", "Single HTML file, no deps."), ("demo", "building", "")],
     12: [("omar", "building", "Python + tree-sitter backend done, UI next.")],
-    24: [("demo", "building", "Feed, ladder, agents, chat, market, Stripe, GitHub verify, push and security hardening done. Next: deploy + first testers.",
-          "https://github.com/juw12/shiphub/tree/main/vibehq", "")],
 }
 
 SEED_FORKS = {19: 1}  # Tab Garden is a fork of Commit Garden
@@ -2332,6 +2330,95 @@ SEED_BOARDS = [
     ("maya", "Dev tools I want", "", [12, 16, 22, 18]),
     ("ari", "Pretty things", "", [11, 4, 1]),
 ]
+
+
+# Projects the site owner is building. They are attached to SETTINGS.owner whenever that
+# account exists (on startup, sign-up and GitHub sign-in), including on an existing database.
+OWNER_PROJECTS = [
+    {
+        "title": "vibeHQ: social HQ for vibe coders",
+        "pitch": "Monitor and command your AI coding agents from your phone, ship in public, "
+                 "climb a verified ladder, chat and sell.",
+        "tags": ["ai", "social", "devtools"],
+        "stack": "Python stdlib · SQLite · SSE · Stripe Connect · Web Push",
+        "scope": 2,
+        "cover": 3,
+        "features": [
+            "Device bridge: see running agents (Claude Code, Codex, Cursor, Ollama...) and send them tasks",
+            "Feed of ships, tips and news with GitHub-verified ships",
+            "XP ladder (global / country / friends), friends + realtime chat",
+            "Marketplace with Stripe Connect payouts, installable phone app with push",
+        ],
+        "twist": "Remote commands need a separate PIN and can require on-device approval, "
+                 "so a stolen login can't run code.",
+        "status": "building",
+        "note": "Feed, ladder, agents, chat, market, Stripe, GitHub verify, push and security "
+                "hardening done. Next: deploy + first testers.",
+        "repo_url": "https://github.com/juw12/shiphub/tree/main/vibehq",
+        "demo_url": "",
+    },
+]
+
+
+def find_owner(db):
+    owner = SETTINGS.owner
+    if not owner:
+        return None
+    # A linked GitHub login is the strongest signal; fall back to the shiphub username.
+    row = db.execute(
+        "SELECT id FROM users WHERE lower(github_login) = lower(?) ORDER BY id LIMIT 1", (owner,)
+    ).fetchone()
+    if row is None:
+        row = db.execute("SELECT id FROM users WHERE lower(username) = lower(?)", (owner,)).fetchone()
+    return row["id"] if row else None
+
+
+def ensure_owner_projects(db) -> int:
+    """Make sure the owner's featured projects exist and show on their Builds tab. Idempotent."""
+    owner_id = find_owner(db)
+    if owner_id is None:
+        return 0
+    added = 0
+    now = time.time()
+    for project in OWNER_PROJECTS:
+        row = db.execute(
+            "SELECT id FROM ideas WHERE user_id = ? AND title = ? AND deleted = 0 ORDER BY id LIMIT 1",
+            (owner_id, project["title"]),
+        ).fetchone()
+        if row:
+            idea_id = row["id"]
+        else:
+            body = (
+                "### Core features\n"
+                + "\n".join(f"- {item}" for item in project["features"])
+                + f"\n\n### The twist\n{project['twist']}"
+            )
+            idea_id = db.insert(
+                "INSERT INTO ideas (user_id, title, pitch, body, stack, scope, cover_style, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (owner_id, project["title"], project["pitch"], body, project["stack"],
+                 project["scope"], project["cover"], now, now),
+            )
+            db.executemany(
+                "INSERT INTO idea_tags (idea_id, tag, pos) VALUES (?, ?, ?)",
+                [(idea_id, tag, pos) for pos, tag in enumerate(project["tags"])],
+            )
+            db.execute(
+                "INSERT INTO idea_votes (idea_id, user_id, created_at) VALUES (?, ?, ?)",
+                (idea_id, owner_id, now),
+            )
+        has_build = db.execute(
+            "SELECT 1 FROM builds WHERE idea_id = ? AND user_id = ?", (idea_id, owner_id)
+        ).fetchone()
+        if not has_build:
+            db.execute(
+                "INSERT INTO builds (idea_id, user_id, status, repo_url, demo_url, note, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (idea_id, owner_id, project["status"], project["repo_url"], project["demo_url"],
+                 project["note"], now, now),
+            )
+            added += 1
+    return added
 
 
 def seed(db) -> None:
