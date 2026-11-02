@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-VibeHQ device bridge.
+shiphub HQ device bridge.
 
 Runs on your machine, reports health + which AI coding agents are running,
-and executes commands you send from the VibeHQ app.
+and executes commands you send from shiphub (HQ → Agents).
 
 Safety model (defense in depth):
   * Read-only commands (ping, sysinfo, list_agents) always work.
@@ -15,8 +15,8 @@ Safety model (defense in depth):
   * Every command is appended to a local audit log (--audit-log).
 
 Usage:
-  python agent.py --server http://localhost:8787 --key vhq_xxx
-  python agent.py --key vhq_xxx --allow-agent --agent-cmd "claude -p" --workdir C:\\code\\myapp
+  python agent.py --server http://localhost:8787 --key shd_xxx
+  python agent.py --key shd_xxx --allow-agent --agent-cmd "claude -p" --workdir C:\\code\\myapp
 """
 import argparse
 import json
@@ -230,7 +230,7 @@ class Bridge:
         except OSError as error:
             print(f"   could not write audit log: {error}")
         try:
-            self.request("POST", "/api/agent/result", {"id": command["id"], "status": status, "result": result})
+            self.request("POST", "/api/hq/agent/result", {"id": command["id"], "status": status, "result": result})
         except (urllib.error.URLError, OSError) as error:
             print(f"   could not report result: {error}")
         print(f"<- #{command['id']} {status}")
@@ -242,7 +242,7 @@ class Bridge:
     def heartbeat(self):
         info = self.system_info()
         info["agents"] = self.detect_agents()
-        return self.request("POST", "/api/agent/heartbeat", {"info": info})
+        return self.request("POST", "/api/hq/agent/heartbeat", {"info": info})
 
     def heartbeat_forever(self):
         """Process discovery can take seconds on Windows, so it runs off the poll loop."""
@@ -265,7 +265,7 @@ class Bridge:
         workers = []
         while True:
             try:
-                poll = self.request("GET", "/api/agent/poll")
+                poll = self.request("GET", "/api/hq/agent/poll")
                 server_time = poll.get("server_time", int(time.time()))
                 for command in poll.get("commands", []):
                     command["_age"] = max(0, server_time - command.get("created", server_time))
@@ -289,9 +289,9 @@ class Bridge:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="VibeHQ device bridge")
-    parser.add_argument("--server", default=os.environ.get("VIBEHQ_SERVER", "http://127.0.0.1:8787"))
-    parser.add_argument("--key", default=os.environ.get("VIBEHQ_DEVICE_KEY"), help="device key from the app")
+    parser = argparse.ArgumentParser(description="shiphub HQ device bridge")
+    parser.add_argument("--server", default=os.environ.get("SHIPHUB_SERVER", "http://127.0.0.1:8000"))
+    parser.add_argument("--key", default=os.environ.get("SHIPHUB_DEVICE_KEY"), help="device key from the app")
     parser.add_argument("--workdir", default=os.getcwd(), help="folder where tasks run")
     parser.add_argument("--allow-agent", action="store_true", help="allow remote agent tasks")
     parser.add_argument("--agent-cmd", default="claude -p", help="agent CLI; the prompt is appended as last arg")
@@ -300,7 +300,7 @@ def main():
     parser.add_argument("--approve", action="store_true", help="ask y/N here before every agent task or shell command")
     parser.add_argument("--shell-allow", default="", help='allowed shell prefixes, e.g. "git status,npm test"')
     parser.add_argument("--max-age", type=int, default=600, help="refuse risky commands queued longer than this (s)")
-    parser.add_argument("--audit-log", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "vibehq-audit.log"),
+    parser.add_argument("--audit-log", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "shiphub-agent-audit.log"),
                         help="append-only local log of every command")
     parser.add_argument("--once", action="store_true", help="poll once and exit (testing)")
     args = parser.parse_args()

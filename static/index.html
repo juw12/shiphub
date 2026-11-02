@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>shiphub · fork an idea, ship an app</title>
-  <meta name="description" content="A Pinterest-style board of app ideas worth building. Save them, discuss them, fork them, ship them.">
+  <meta name="description" content="App ideas worth building, plus an HQ for vibe coders: run your AI agents, ship, climb the ladder, chat and sell.">
   <link rel="stylesheet" href="/static/app.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
   <meta name="theme-color" content="#e5484d">
   <script src="/static/theme.js"></script>
 </head>
@@ -20,7 +22,7 @@
       <nav class="nav-links" aria-label="Main">
         <a href="#/" data-nav="explore">Explore</a>
         <a href="#/?status=shipped" data-nav="shipped">Shipped</a>
-        <a href="/hq/" data-hq-link hidden>HQ</a>
+        <a href="#/hq" data-nav="hq">HQ</a>
       </nav>
       <form class="search" role="search" autocomplete="off">
         <span class="search-icon"></span>
@@ -34,6 +36,7 @@
   <main id="view" class="view"></main>
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
+  <script src="/static/hq.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

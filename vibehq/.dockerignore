@@ -1,8 +1,0 @@
-.env
-*.db
-*.db-*
-backups/
-__pycache__/
-tests/
-vibehq-audit.log
-agent.py
