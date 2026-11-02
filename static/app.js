@@ -689,6 +689,19 @@ function updateNav(path, params) {
   }
 }
 
+// "#/login?next=/hq/" lets vibeHQ send people here to sign in and come back.
+function safeNextPath(value) {
+  return typeof value === "string" && /^\/hq\/[A-Za-z0-9_\-\/#?=&.]*$/.test(value) ? value : null;
+}
+
+function takeLoginRedirect() {
+  const target = state.loginNext;
+  state.loginNext = null;
+  if (!target) return false;
+  location.href = target;
+  return true;
+}
+
 function route() {
   const token = ++state.routeToken;
   const isCurrent = () => token === state.routeToken;
@@ -716,6 +729,19 @@ function route() {
     }
     window.scrollTo(0, 0);
     renderFeed(params, key);
+    return;
+  }
+
+  if (path === "/login") {
+    const next = safeNextPath(params.get("next"));
+    if (state.me) {
+      location.href = next || "#/";
+      return;
+    }
+    // keep "#/login?next=..." in the URL so "Continue with GitHub" also comes back here
+    state.loginNext = next;
+    renderFeed(new URLSearchParams(), "#/login");
+    openAuth("login");
     return;
   }
 
@@ -1869,6 +1895,7 @@ function openAuth(mode = "login") {
     renderTopbarActions();
     invalidateFeed();
     closeModal({ force: true });
+    if (takeLoginRedirect()) return;
     toast(`Welcome, ${result.user.display_name}!`);
     startPolling();
     route();
@@ -2383,6 +2410,8 @@ async function boot() {
   const [meResult, configResult] = await Promise.allSettled([api("GET", "/api/me"), api("GET", "/api/config")]);
   if (configResult.status === "fulfilled") {
     state.config = { ...state.config, ...configResult.value };
+  const hqLink = $("[data-hq-link]");
+  if (hqLink) hqLink.hidden = !state.config.hq;
   }
   if (meResult.status === "fulfilled") {
     state.me = meResult.value.user;

@@ -1,8 +1,11 @@
 // vibeHQ service worker: offline app shell + push notifications.
 // Pushes arrive without payload; we fetch the newest notification from the API
 // so notification text never passes through third-party push servers.
-const CACHE = "vibehq-v2";
-const SHELL = ["/", "/manifest.webmanifest", "/static/icon-192.png", "/static/icon-512.png"];
+const CACHE = "vibehq-v3";
+// Paths are relative to this worker, so the app works at "/" or mounted at e.g. "/hq/".
+const SCOPE = self.registration.scope;
+const API_PREFIX = new URL("api/", SCOPE).pathname;
+const SHELL = ["./", "manifest.webmanifest", "static/icon-192.png", "static/icon-512.png"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
@@ -19,7 +22,7 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) {
+  if (event.request.method !== "GET" || !url.href.startsWith(SCOPE) || url.pathname.startsWith(API_PREFIX)) {
     return;
   }
   // network first, cached shell when offline
@@ -30,7 +33,7 @@ self.addEventListener("fetch", event => {
       cache.put(event.request, response.clone());
       return response;
     } catch (error) {
-      return (await caches.match(event.request)) || (await caches.match("/"));
+      return (await caches.match(event.request)) || (await caches.match("./"));
     }
   })());
 });
@@ -54,7 +57,7 @@ async function showLatestNotification() {
   try {
     const token = await readToken();
     if (token) {
-      const response = await fetch("/api/notifications?unread=1&limit=1", {
+      const response = await fetch("api/notifications?unread=1&limit=1", {
         headers: { Authorization: "Bearer " + token },
       });
       if (response.ok) {
@@ -70,8 +73,8 @@ async function showLatestNotification() {
   }
   return self.registration.showNotification("vibeHQ", {
     body,
-    icon: "/static/icon-192.png",
-    badge: "/static/icon-192.png",
+    icon: "static/icon-192.png",
+    badge: "static/icon-192.png",
     tag: "vibehq-" + link,
     renotify: true,
     data: { link },
@@ -84,11 +87,11 @@ self.addEventListener("push", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  const target = "/#" + (event.notification.data && event.notification.data.link || "feed");
+  const target = SCOPE + "#" + (event.notification.data && event.notification.data.link || "feed");
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of windows) {
-      if (new URL(client.url).origin === location.origin) {
+      if (client.url.startsWith(SCOPE)) {
         await client.focus();
         client.postMessage({ type: "open", link: event.notification.data.link });
         return;

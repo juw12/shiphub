@@ -11,6 +11,7 @@ Zero dependencies: Python 3.9+ standard library only.
 Run:  python server.py --demo   (then open http://localhost:8787)
 """
 import argparse
+import base64
 import datetime
 import hashlib
 import hmac
@@ -56,6 +57,16 @@ load_env_file(os.path.join(ROOT, ".env"))
 STATIC_DIR = os.path.join(ROOT, "static")
 DB_PATH = os.environ.get("VIBEHQ_DB", os.path.join(ROOT, "vibehq.db"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
+# Serve the whole app under a sub-path (e.g. "/hq" when mounted inside shiphub).
+BASE_PATH = "/" + os.environ.get("VIBEHQ_BASE_PATH", "").strip("/") if os.environ.get("VIBEHQ_BASE_PATH", "").strip("/") else ""
+# Single sign-on from a host site (shiphub). The host proxy signs the logged-in user with this secret.
+SSO_SECRET = os.environ.get("VIBEHQ_SSO_SECRET", "")
+SSO_NAME = os.environ.get("VIBEHQ_SSO_NAME", "shiphub")
+SSO_LOGIN_URL = os.environ.get("VIBEHQ_SSO_LOGIN_URL", "/")
+SSO_LOGOUT_URL = os.environ.get("VIBEHQ_SSO_LOGOUT_URL", "")
+SSO_HOME_URL = os.environ.get("VIBEHQ_SSO_HOME_URL", "/")
+SSO_HEADER = "X-Shiphub-Assert"
+SSO_MAX_AGE = 120
 
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("application/manifest+json", ".webmanifest")
@@ -248,6 +259,7 @@ MIGRATIONS = [
     ("sessions", "last_seen", "INTEGER NOT NULL DEFAULT 0"),
     ("sessions", "user_agent", "TEXT NOT NULL DEFAULT ''"),
     ("sessions", "ip", "TEXT NOT NULL DEFAULT ''"),
+    ("users", "shiphub_id", "INTEGER"),
 ]
 
 SCHEMA_EXTRA = """
@@ -302,6 +314,9 @@ def init_db():
         if column not in existing:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     conn.executescript(SCHEMA_EXTRA)
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS users_shiphub ON users(shiphub_id) WHERE shiphub_id IS NOT NULL"
+    )
     if not conn.execute("SELECT 1 FROM settings WHERE key='sessions_hashed'").fetchone():
         for row in conn.execute("SELECT token FROM sessions").fetchall():
             conn.execute("UPDATE sessions SET token=? WHERE token=?", (sha256(row["token"]), row["token"]))
@@ -711,6 +726,8 @@ def create_session(conn, user_id, ctx=None):
 
 @route("POST", "/api/register")
 def register(ctx):
+    if SSO_SECRET:
+        raise ApiError(403, f"accounts are created on {SSO_NAME} - log in there")
     register_key = f"register:{ctx.client_ip()}"
     if LIMITER.blocked(register_key, *REGISTER_LIMIT):
         raise ApiError(429, "too many sign-ups from this network - try again later")
@@ -797,6 +814,12 @@ def public_config(ctx):
         "github": GITHUB is not None,
         "vapid_public_key": webpush.b64url(webpush.public_key_bytes(vapid_private_key())),
         "ntfy_base": NTFY_BASE,
+        "sso": {
+            "name": SSO_NAME,
+            "login_url": SSO_LOGIN_URL,
+            "logout_url": SSO_LOGOUT_URL,
+            "home_url": SSO_HOME_URL,
+        } if SSO_SECRET else None,
     }
 
 
@@ -814,6 +837,80 @@ def update_profile(ctx):
         (bio, stack, country, ntfy_topic, user["id"]),
     )
     return {"ok": True}
+
+
+
+# ---------------------------------------------------------------- single sign-on (shiphub)
+
+def verify_sso_assertion(value):
+    """Return the identity dict if the host proxy signed it recently with our shared secret."""
+    if not SSO_SECRET or not value or "." not in value:
+        return None
+    payload_b64, _, signature = value.rpartition(".")
+    expected = hmac.new(SSO_SECRET.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        return None
+    try:
+        padded = payload_b64 + "=" * (-len(payload_b64) % 4)
+        identity = json.loads(base64.urlsafe_b64decode(padded))
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(identity, dict) or not isinstance(identity.get("id"), int):
+        return None
+    if abs(now() - float(identity.get("ts", 0))) > SSO_MAX_AGE:
+        return None
+    return identity
+
+
+def sso_user(conn, identity):
+    """Find or create the vibeHQ account linked to a shiphub account."""
+    shiphub_id = identity["id"]
+    github_login = str(identity.get("github_login") or "")[:39]
+    avatar = str(identity.get("avatar_url") or "")[:500]
+    row = conn.execute("SELECT * FROM users WHERE shiphub_id=?", (shiphub_id,)).fetchone()
+    if row:
+        # shiphub got the GitHub login through OAuth, so it can back verified ships here too
+        if github_login and not row["github_login"]:
+            conn.execute("UPDATE users SET github_login=? WHERE id=?", (github_login, row["id"]))
+        if avatar and not row["avatar_url"]:
+            conn.execute("UPDATE users SET avatar_url=? WHERE id=?", (avatar, row["id"]))
+        return row["id"]
+    base = re.sub(r"[^A-Za-z0-9_]", "", str(identity.get("username") or ""))[:24] or "builder"
+    if len(base) < 3:
+        base = (base + "___")[:3]
+    cursor = conn.execute(
+        """INSERT INTO users(username, pw_hash, pw_salt, bio, github_login, avatar_url, created,
+                             has_password, shiphub_id)
+           VALUES (?,?,?,?,?,?,?,0,?)""",
+        (
+            unique_username(conn, base),
+            secrets.token_hex(32),
+            secrets.token_hex(16),
+            str(identity.get("bio") or "")[:280],
+            github_login,
+            avatar,
+            now(),
+            shiphub_id,
+        ),
+    )
+    return cursor.lastrowid
+
+
+@route("POST", "/api/sso")
+def sso_exchange(ctx):
+    if not SSO_SECRET:
+        raise ApiError(404, "not found")
+    identity = verify_sso_assertion(ctx.handler.headers.get(SSO_HEADER, ""))
+    if identity is None:
+        raise ApiError(401, f"sign in to {SSO_NAME} first")
+    user_id = sso_user(ctx.conn, identity)
+    header = ctx.handler.headers.get("Authorization", "")
+    if header.startswith("Bearer "):
+        # rotate: the previous vibeHQ session in this browser is replaced
+        ctx.conn.execute("DELETE FROM sessions WHERE token=?", (sha256(header[7:]),))
+    token = create_session(ctx.conn, user_id, ctx)
+    award_xp(ctx.conn, user_id, "daily_login")
+    return {"token": token}
 
 
 # ---------------------------------------------------------------- GitHub login & verification
@@ -849,8 +946,11 @@ def unique_username(conn, wanted):
 
 @route("GET", "/api/auth/github/start")
 def github_start(ctx):
+    if SSO_SECRET:
+        # one account for the whole site: sign in through the host, which has its own GitHub login
+        return Redirect(SSO_LOGIN_URL)
     if GITHUB is None:
-        return Redirect("/#autherror=" + quote("GitHub login is not configured on this server"))
+        return Redirect(BASE_PATH + "/#autherror=" + quote("GitHub login is not configured on this server"))
     return Redirect(GITHUB.authorize_url(new_oauth_state(ctx.conn), github_redirect_uri()))
 
 
@@ -869,13 +969,13 @@ def github_callback(ctx):
         "SELECT * FROM oauth_states WHERE state=? AND created > ?", (ctx.arg("state"), now() - 600)
     ).fetchone()
     if GITHUB is None or not state:
-        return Redirect("/#autherror=" + quote("login link expired - please try again"))
+        return Redirect(BASE_PATH + "/#autherror=" + quote("login link expired - please try again"))
     conn.execute("DELETE FROM oauth_states WHERE state=?", (state["state"],))
     try:
         access_token = GITHUB.exchange_code(ctx.arg("code"), github_redirect_uri())
         profile = GITHUB.current_user(access_token)
     except GitHubError as error:
-        return Redirect("/#autherror=" + quote(str(error)))
+        return Redirect(BASE_PATH + "/#autherror=" + quote(str(error)))
     github_id = int(profile["id"])
     login_name = profile.get("login", "")
     avatar = profile.get("avatar_url", "")
@@ -883,12 +983,12 @@ def github_callback(ctx):
 
     if state["user_id"]:
         if owner and owner["id"] != state["user_id"]:
-            return Redirect("/#autherror=" + quote("that GitHub account is linked to another vibeHQ user"))
+            return Redirect(BASE_PATH + "/#autherror=" + quote("that GitHub account is linked to another vibeHQ user"))
         conn.execute(
             "UPDATE users SET github_id=?, github_login=?, avatar_url=? WHERE id=?",
             (github_id, login_name, avatar, state["user_id"]),
         )
-        return Redirect("/#linked")
+        return Redirect(BASE_PATH + "/#linked")
 
     if owner:
         conn.execute(
@@ -915,7 +1015,7 @@ def github_callback(ctx):
             ),
         )
         user_id = cursor.lastrowid
-    return Redirect(f"/#auth={create_session(conn, user_id, ctx)}")
+    return Redirect(f"{BASE_PATH}/#auth={create_session(conn, user_id, ctx)}")
 
 
 def parse_github_time(value):
@@ -1983,6 +2083,13 @@ class Handler(BaseHTTPRequestHandler):
     def dispatch(self, method):
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
+        if BASE_PATH:
+            if path == BASE_PATH:
+                query = f"?{parsed.query}" if parsed.query else ""
+                return self.send_redirect(BASE_PATH + "/" + query)
+            if not path.startswith(BASE_PATH + "/"):
+                return self.send_json(404, {"error": "not found"})
+            path = path[len(BASE_PATH):]
         if method == "GET" and not path.startswith("/api/"):
             return self.serve_static(path)
         if method == "GET" and path == "/api/stream":
@@ -2150,16 +2257,33 @@ def seed_demo():
     print("Demo data loaded. Log in as alice / demo1234 (or budi, chen, dara, emeka).")
 
 
+def exit_with_parent():
+    """When a host process (shiphub) runs us, it keeps our stdin open; EOF means it is gone."""
+    def watch():
+        try:
+            while sys.stdin.buffer.read(1024):
+                pass
+        except (OSError, ValueError):
+            pass
+        os._exit(0)
+    threading.Thread(target=watch, daemon=True).start()
+
+
 def main():
     parser = argparse.ArgumentParser(description="VibeHQ server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--demo", action="store_true", help="seed demo users and content")
+    parser.add_argument("--base-path", default=None, help='serve under a sub-path, e.g. "/hq"')
     args = parser.parse_args()
-    global PUBLIC_URL
+    global PUBLIC_URL, BASE_PATH
+    if args.base_path is not None:
+        BASE_PATH = "/" + args.base_path.strip("/") if args.base_path.strip("/") else ""
     if not PUBLIC_URL:
         shown_host = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
-        PUBLIC_URL = f"http://{shown_host}:{args.port}"
+        PUBLIC_URL = f"http://{shown_host}:{args.port}{BASE_PATH}"
+    if os.environ.get("VIBEHQ_EXIT_WITH_PARENT") == "1":
+        exit_with_parent()
     init_db()
     if args.demo:
         seed_demo()
@@ -2173,7 +2297,9 @@ def main():
         payments = "Stripe TEST mode"
     else:
         payments = "Stripe LIVE"
-    print(f"VibeHQ running on http://{args.host}:{args.port}  (public URL {PUBLIC_URL})")
+    print(f"VibeHQ running on http://{args.host}:{args.port}{BASE_PATH}/  (public URL {PUBLIC_URL})")
+    if SSO_SECRET:
+        print(f"  sign-in:      single sign-on via {SSO_NAME}")
     print(f"  payments:     {payments}")
     print(f"  GitHub login: {'on' if GITHUB else 'off (set GITHUB_CLIENT_ID/SECRET)'}")
     print(f"  push:         web push on, ntfy via {NTFY_BASE}")

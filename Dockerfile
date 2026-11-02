@@ -13,8 +13,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py .
+COPY server.py hq_bridge.py ./
 COPY static ./static
+COPY vibehq ./vibehq
 
 RUN useradd --create-home --uid 10001 shiphub \
     && mkdir -p /data \

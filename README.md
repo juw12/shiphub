@@ -10,20 +10,26 @@ boards, notifications, GitHub sign-in and image uploads.
 | --- | --- | --- |
 | ![Idea page](screenshots/04-idea-with-uploaded-cover.png) | ![Sign in](screenshots/01-auth-modal-github.png) | ![Profile](screenshots/06-profile-with-avatar.png) |
 
-## Building: vibeHQ
+## vibeHQ is built in (`/hq`)
 
-[`vibehq/`](vibehq/) is a project I'm building on shiphub: a social HQ for vibe coders.
-It shows up on my profile's **Builds** tab (`#/u/juw12/builds`). Whenever the `juw12` account exists (signed up or signed in with GitHub), the server makes sure the idea and the build entry are there, including on an existing database. Set `SHIPHUB_OWNER` to change the owner, or set it empty to turn this off.
+shiphub and [vibeHQ](vibehq/) run as **one site with one account**:
 
-- Monitor and command your own AI coding agents (Claude Code, Codex, Cursor, Ollama…) from any device
-- Feed of ships, tips and news, with **GitHub-verified ships**
-- XP ladder (global / country / friends), friends and realtime chat
-- Marketplace with Stripe Connect payouts, installable phone app with push notifications
-- Security: command PIN, on-device approval, hashed sessions, rate limits
+- `python server.py` starts both. Ideas live at `/`, the vibe-coder HQ (agents & devices, feed, XP ladder,
+  friends & chat, marketplace) lives at `/hq/`. The **HQ** tab in the top bar switches over, **← shiphub** comes back.
+- Your shiphub account *is* your vibeHQ account. Opening `/hq/` signs you in automatically; logging out of
+  shiphub logs you out of both. GitHub sign-in on shiphub also backs vibeHQ's verified ships.
+- Under the hood shiphub runs vibeHQ as a child process on a private port and proxies `/hq/*` to it
+  (`hq_bridge.py`). Sign-on uses a per-boot HMAC secret only the two processes know; clients can't forge it.
+- vibeHQ data lives in `SHIPHUB_DATA_DIR/vibehq.db` (SQLite) next to shiphub's data. On hosts with an
+  ephemeral disk, mount a volume there.
+- `SHIPHUB_HQ=0` turns `/hq` off. vibeHQ still runs on its own too: `cd vibehq && python server.py --demo`.
+- vibeHQ is also my build on shiphub: it shows on my profile's **Builds** tab (`#/u/juw12/builds`); set
+  `SHIPHUB_OWNER` to change the owner or leave it empty to turn that off.
+- If you use GitHub sign-in and also want vibeHQ's own "link GitHub" button, set the OAuth app's callback
+  URL to your site root (`https://YOUR-DOMAIN/`) so both `/auth/github/callback` and `/hq/...` are allowed,
+  or give vibeHQ its own app via `VIBEHQ_GITHUB_CLIENT_ID` / `VIBEHQ_GITHUB_CLIENT_SECRET`.
 
-Zero dependencies. Run it with `cd vibehq && python server.py --demo` and open http://127.0.0.1:8787
-(login `alice` / `demo1234`). Tests: `python tests/run_tests.py` (79 end-to-end checks).
-Deploy guide: [`vibehq/DEPLOY.md`](vibehq/DEPLOY.md).
+Tests: `python tests/test_combined.py` (one-site checks) and `python vibehq/tests/run_tests.py` (79 vibeHQ checks).
 
 ## Run it locally
 

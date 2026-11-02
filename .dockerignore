@@ -8,3 +8,7 @@ __pycache__/
 config.env
 .git/
 start.bat
+vibehq/.env
+vibehq/tests/
+vibehq/audit.log
+vibehq/backups/

@@ -13,6 +13,7 @@ this script (see config.example.env).
 from __future__ import annotations
 
 import argparse
+import atexit
 import base64
 import functools
 import gzip
@@ -24,6 +25,7 @@ import queue
 import random
 import re
 import secrets
+import signal
 import socket
 import sqlite3
 import sys
@@ -35,11 +37,15 @@ import urllib.request
 import webbrowser
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import hq_bridge
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
+HQ_DIR = ROOT / "vibehq"
+HQ = None  # HQBridge once vibeHQ is running under /hq
 
 
 def load_env_file(path: Path) -> None:
@@ -83,6 +89,8 @@ class Settings:
         self.github_api_url = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
         self.demo = env_flag("SHIPHUB_DEMO", True)
         self.seed = env_flag("SHIPHUB_SEED", True)
+        # Mount vibeHQ (./vibehq) at /hq with shared accounts. SHIPHUB_HQ=0 turns it off.
+        self.hq = env_flag("SHIPHUB_HQ", True)
         # Account (username or GitHub login) that owns the featured projects below. Empty disables.
         self.owner = os.environ.get("SHIPHUB_OWNER", "juw12").strip()
         self.trust_proxy = env_flag("TRUST_PROXY", False)
@@ -1081,6 +1089,7 @@ def client_config(ctx: Ctx):
         "github": SETTINGS.github_enabled,
         "demo": SETTINGS.demo,
         "max_upload_bytes": SETTINGS.max_upload_bytes,
+        "hq": HQ is not None,
     }
 
 
@@ -1812,6 +1821,9 @@ class Handler(BaseHTTPRequestHandler):
     def dispatch(self, method: str) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        if path == "/hq" or path.startswith("/hq/"):
+            self.serve_hq(method, parsed)
+            return
         if path.startswith("/api/"):
             self.handle_api(method, parsed)
             return
@@ -1829,6 +1841,33 @@ class Handler(BaseHTTPRequestHandler):
             self.serve_upload(path)
         else:
             self.serve_static(path)
+
+    # ----- vibeHQ (/hq) ----- #
+
+    def serve_hq(self, method: str, parsed) -> None:
+        if HQ is None:
+            self.drain_body()
+            self.send_json(404, {"error": "Not found"})
+            return
+        if method not in ("GET", "POST"):
+            self.drain_body()
+            self.send_json(405, {"error": "Method not allowed"})
+            return
+        user = None
+        if method == "POST" and parsed.path == hq_bridge.SSO_PATH:
+            # Only the sign-on call carries the shiphub identity, and only for same-origin pages.
+            try:
+                self.check_origin()
+            except ApiError as error:
+                self.drain_body()
+                self.send_json(error.status, {"error": error.message})
+                return
+            db = connect()
+            try:
+                user = self.current_user(db, self.session_token())
+            finally:
+                db.close()
+        HQ.forward(self, method, user)
 
     # ----- API ----- #
 
@@ -2607,6 +2646,9 @@ def main() -> None:
     print(f"  GitHub sign-in: {'on' if SETTINGS.github_enabled else 'off (set GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET)'}", flush=True)
     if SETTINGS.demo:
         print("  demo login: demo / demo1234", flush=True)
+    start_hq(url)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, stop_on_sigterm)
     print("  Ctrl+C to stop\n", flush=True)
     if not args.no_browser:
         threading.Timer(0.8, webbrowser.open, [f"http://{shown_host}:{server.server_port}/"]).start()
@@ -2616,6 +2658,27 @@ def main() -> None:
         print("\n  Stopped.")
     finally:
         server.server_close()
+        if HQ is not None:
+            HQ.stop()
+
+
+def stop_on_sigterm(signum, frame) -> None:
+    """docker stop / Fly / Render send SIGTERM; unwind like Ctrl+C so vibeHQ is stopped too."""
+    raise KeyboardInterrupt
+
+
+def start_hq(site_url: str) -> None:
+    """Run vibeHQ behind /hq so both apps share one site and one account."""
+    global HQ
+    if not SETTINGS.hq or not (HQ_DIR / "server.py").exists():
+        return
+    bridge = hq_bridge.HQBridge(HQ_DIR, SETTINGS.data_dir, demo=SETTINGS.demo)
+    atexit.register(bridge.stop)
+    if bridge.start(site_url):
+        print(f"  vibeHQ: {site_url}/hq/  (shared shiphub accounts)", flush=True)
+    else:
+        print("  vibeHQ: failed to start, /hq will retry in the background", flush=True)
+    HQ = bridge
 
 
 if __name__ == "__main__":
