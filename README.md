@@ -4,6 +4,12 @@ A Pinterest-style board of app ideas worth building, with forum threads,
 builders ("I'm building this" → shipped, with repo + demo links), forks,
 boards, notifications, GitHub sign-in and image uploads.
 
+![shiphub feed](screenshots/09-feed-dark.png)
+
+| Idea page | GitHub sign-in | Profile with uploaded photo |
+| --- | --- | --- |
+| ![Idea page](screenshots/04-idea-with-uploaded-cover.png) | ![Sign in](screenshots/01-auth-modal-github.png) | ![Profile](screenshots/06-profile-with-avatar.png) |
+
 ## Run it locally
 
 Double-click `start.bat`, or:
