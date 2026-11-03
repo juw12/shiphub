@@ -1,4 +1,53 @@
-# shiphub
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/shiphub"><img src="docs/media/banner.jpg" alt="shiphub: Pinterest for app ideas, with forum threads." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>Pinterest for app ideas, with forum threads.</b><br>
+  Save ideas to boards, discuss them, fork them, claim one with "I'm building this" and mark it shipped.
+</p>
+
+<p align="center">
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/shiphub"><img src="https://img.shields.io/github/last-commit/juw12/shiphub?label=updated&color=e11d48" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted">
+  <img src="https://img.shields.io/badge/Python-24292f" alt="Python">
+  <img src="https://img.shields.io/badge/SQLite_or_Postgres-24292f" alt="SQLite or Postgres">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>Boards of ideas</b><br>
+      Save and organise ideas worth building.
+    </td>
+    <td width="33%" valign="top">
+      <b>Claim and ship</b><br>
+      Say "I'm building this", then mark it shipped with repo and demo links.
+    </td>
+    <td width="33%" valign="top">
+      <b>A simple stack</b><br>
+      GitHub sign-in and plain Python with SQLite or Postgres.
+    </td>
+  </tr>
+</table>
+
+## See it in action
+
+<p align="center">
+  <a href="https://github.com/juw12/shiphub"><img src="screenshots/01-feed-light.png" alt="shiphub screenshot" width="820"></a><br>
+  <sub>shiphub in use</sub>
+</p>
+<!-- HERO:END -->
+
+## About
 
 A Pinterest-style board of app ideas worth building, with forum threads,
 builders ("I'm building this" → shipped, with repo + demo links), forks,
