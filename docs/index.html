@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>shiphub guide: Pinterest for app ideas, with forum threads</title>
+<meta name="description" content="Pinterest for app ideas, with forum threads">
+<link rel="canonical" href="https://juw12.github.io/shiphub/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="shiphub">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbfaf6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="shiphub guide">
+<meta property="og:description" content="Pinterest for app ideas, with forum threads">
+<style>
+:root{--paper:#fbfaf6;--ink:#1d1c1a;--soft:#5d5a54;--line:#e3dfd5;--card:#ffffff;--accent:#302395;--code:#f1eee6}
+@media (prefers-color-scheme:dark){:root{--paper:#171614;--ink:#eeebe4;--soft:#a9a49a;--line:#35322d;--card:#201f1c;--accent:#8f85e0;--code:#262420}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));background:var(--paper);border-bottom:1px solid var(--line)}
+header.bar img{width:36px;height:36px;border-radius:9px;flex:none}
+header.bar .name{font-weight:700;font-size:18px;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.bar .name small{display:block;font-weight:500;font-size:13px;color:var(--soft)}
+header.bar a.source{flex:none;display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+main img{max-width:100%;height:auto;border-radius:8px}
+main h1{font-size:30px;line-height:1.2;margin:24px 0 12px}
+main h2{font-size:23px;line-height:1.25;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+main h3{font-size:19px;line-height:1.3;margin:26px 0 8px}
+main h4{font-size:17px;margin:22px 0 6px}
+main p,main li{overflow-wrap:anywhere}
+main a{color:var(--accent);text-underline-offset:3px;padding:6px 0}
+main p[align=center] a,main li>a:only-child{display:inline-block;padding:11px 3px}
+main a:has(>img){display:inline-block;padding:8px 0}
+main p[align=center] a:has(>img[width="100%"]){display:block;padding:0}
+main ul,main ol{padding-left:24px}
+main li{margin:6px 0}
+main blockquote{margin:16px 0;padding:4px 16px;border-left:4px solid var(--accent);color:var(--soft)}
+main code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+main pre{background:var(--code);padding:14px;border-radius:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+main pre code{background:none;padding:0;overflow-wrap:normal;white-space:pre}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+main table{border-collapse:collapse;font-size:15px;min-width:100%}
+main th,main td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+main th{background:var(--code)}
+main hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+main kbd{font:13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px}
+main details{margin:12px 0}
+main summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+footer{max-width:760px;margin:0 auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+<img src="icons/icon-192.png" alt="" width="36" height="36">
+<div class="name">shiphub<small>Guide</small></div>
+<a class="source" href="https://github.com/juw12/shiphub">GitHub</a>
+</header>
+<main id="guide">
+
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/shiphub"><img loading="lazy" src="media/banner.jpg" alt="shiphub: Pinterest for app ideas, with forum threads." width="100%" style="max-width: 100%;"></a>
+</p>
+<p align="center" dir="auto">
+  <b>Pinterest for app ideas, with forum threads.</b><br>
+  Save ideas to boards, discuss them, fork them, claim one with "I'm building this" and mark it shipped.
+</p>
+<p align="center" dir="auto">
+  <a href="#see-it-in-action">See it in action</a> ·
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/shiphub"><img loading="lazy" src="https://img.shields.io/github/last-commit/juw12/shiphub?label=updated&amp;color=e11d48" alt="Last updated"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/e653d8c0baaacf2c4eed424c13eca56ba52a9483f149861248c19cd82a8cc879/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f53656c662d2d686f737465642d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Self--hosted-24292f" alt="Self-hosted"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/441648a91398665dbdf5974356cf9318193ecb10f1ac436827588c2ff95464ea/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f507974686f6e2d323432393266"><img loading="lazy" src="https://img.shields.io/badge/Python-24292f" alt="Python"  style="max-width: 100%;"></a>
+  <a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/abe01275f6c994b6e250e6836752700df11e247c014b76c0156ce55de9ad6702/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f53514c6974655f6f725f506f7374677265732d323432393266"><img loading="lazy" src="https://img.shields.io/badge/SQLite_or_Postgres-24292f" alt="SQLite or Postgres"  style="max-width: 100%;"></a>
+</p>
+<p dir="auto"><a id="highlights"></a></p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+  <tbody><tr>
+    <td width="33%" valign="top">
+      <b>Boards of ideas</b><br>
+      Save and organise ideas worth building.
+    </td>
+    <td width="33%" valign="top">
+      <b>Claim and ship</b><br>
+      Say "I'm building this", then mark it shipped with repo and demo links.
+    </td>
+    <td width="33%" valign="top">
+      <b>A simple stack</b><br>
+      GitHub sign-in and plain Python with SQLite or Postgres.
+    </td>
+  </tr>
+</tbody></table></div></markdown-accessiblity-table>
+<h2 dir="auto">See it in action</h2>
+<p align="center" dir="auto">
+  <a href="https://github.com/juw12/shiphub"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/shiphub/main/screenshots/01-feed-light.png" alt="shiphub screenshot" width="820" style="max-width: 100%;"></a><br>
+  <sub>shiphub in use</sub>
+</p>
+
+<h2 dir="auto">About</h2>
+<p dir="auto">A Pinterest-style board of app ideas worth building, with forum threads,<br>
+builders ("I'm building this" → shipped, with repo + demo links), forks,<br>
+boards, notifications, GitHub sign-in and image uploads.</p>
+<p dir="auto"><a target="_blank" rel="noopener noreferrer" href="https://github.com/juw12/shiphub/blob/main/screenshots/09-feed-dark.png"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/shiphub/main/screenshots/09-feed-dark.png" alt="shiphub feed" style="max-width: 100%;"></a></p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Idea page</th>
+<th>GitHub sign-in</th>
+<th>Profile with uploaded photo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a target="_blank" rel="noopener noreferrer" href="https://github.com/juw12/shiphub/blob/main/screenshots/04-idea-with-uploaded-cover.png"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/shiphub/main/screenshots/04-idea-with-uploaded-cover.png" alt="Idea page" style="max-width: 100%;"></a></td>
+<td><a target="_blank" rel="noopener noreferrer" href="https://github.com/juw12/shiphub/blob/main/screenshots/01-auth-modal-github.png"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/shiphub/main/screenshots/01-auth-modal-github.png" alt="Sign in" style="max-width: 100%;"></a></td>
+<td><a target="_blank" rel="noopener noreferrer" href="https://github.com/juw12/shiphub/blob/main/screenshots/06-profile-with-avatar.png"><img loading="lazy" src="https://raw.githubusercontent.com/juw12/shiphub/main/screenshots/06-profile-with-avatar.png" alt="Profile" style="max-width: 100%;"></a></td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">HQ: the vibe-coder side of shiphub</h2>
+<p dir="auto">shiphub has a built-in <strong>HQ</strong> tab (<code class="notranslate">#/hq</code>) for vibe coders. It is the same app, database, account,<br>
+notification bell and profile, with no second server:</p>
+<ul dir="auto">
+<li><strong>Feed</strong>: post ships, tips and news. A ship linked to a GitHub repo you own gets a ✓ verified badge<br>
+(needs GitHub sign-in).</li>
+<li><strong>Ladder</strong>: XP from posting, likes, friends, finished agent tasks, sales, and idea-board actions<br>
+(new ideas, comments, shipped builds). Daily caps stop farming. You can view the ladder globally,<br>
+by country or among friends, for all time or this week.</li>
+<li><strong>Agents</strong>: add a device, run <code class="notranslate">agent.py</code> on it, then send <code class="notranslate">ping</code>, <code class="notranslate">sysinfo</code> and <code class="notranslate">list_agents</code>, or<br>
+PIN-protected <code class="notranslate">agent_task</code> (for example <code class="notranslate">claude -p ...</code>) and <code class="notranslate">shell</code> commands, from your browser or phone.</li>
+<li><strong>Chat</strong>: a world channel, plus DMs between friends. <strong>Friends</strong>: search people, send and accept requests.</li>
+<li><strong>Market</strong>: sell prompts, templates and tools. Payments go through Stripe Connect when it's configured;<br>
+without Stripe the market runs in demo mode, so purchases complete instantly with no real charge.</li>
+<li><strong>Settings</strong>: country and stack, command PIN, active sessions ("sign out everywhere"), password,<br>
+phone push (install the site as an app) and an optional ntfy.sh topic.</li>
+</ul>
+<p dir="auto">HQ stats also show on every profile (<code class="notranslate">#/u/&lt;name&gt;/hq</code>). The vibeHQ idea is listed on the owner's <strong>Builds</strong><br>
+tab (<code class="notranslate">SHIPHUB_OWNER</code>, default <code class="notranslate">juw12</code>; leave it empty to turn that off).</p>
+<h3 dir="auto">Connect a device</h3>
+<p dir="auto">In HQ → Agents → <strong>Add device</strong>, copy the key (shown once), then on that machine run:</p>
+<pre class="notranslate"><code class="notranslate">python agent.py --server https://YOUR-SITE --key shd_xxx
+python agent.py --server https://YOUR-SITE --key shd_xxx --allow-agent --agent-cmd "claude -p" --workdir C:\code\myapp
+</code></pre>
+<p dir="auto">Agent tasks and shell commands are <strong>off unless enabled on the device itself</strong> (<code class="notranslate">--allow-agent</code>,<br>
+<code class="notranslate">--allow-shell</code>, optionally <code class="notranslate">--shell-allow "git status,npm test"</code> and <code class="notranslate">--approve</code>). They also need the<br>
+account's command PIN, and 5 wrong PINs lock remote commands for 15 minutes. Every command is written<br>
+to <code class="notranslate">shiphub-agent-audit.log</code> next to <code class="notranslate">agent.py</code>. You can also set the server and key with the<br>
+<code class="notranslate">SHIPHUB_SERVER</code> and <code class="notranslate">SHIPHUB_DEVICE_KEY</code> environment variables.</p>
+<h3 dir="auto">HQ settings (environment or <code class="notranslate">config.env</code>)</h3>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Variable</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">STRIPE_SECRET_KEY</code></td>
+<td>Turns on real payments (Stripe Connect Express payouts to sellers).</td>
+</tr>
+<tr>
+<td><code class="notranslate">STRIPE_WEBHOOK_SECRET</code></td>
+<td>Signing secret for the webhook at <code class="notranslate">https://YOUR-SITE/api/hq/stripe/webhook</code> (event <code class="notranslate">checkout.session.completed</code>, plus <code class="notranslate">account.updated</code> for Connect).</td>
+</tr>
+<tr>
+<td><code class="notranslate">PLATFORM_FEE_PERCENT</code></td>
+<td>Your cut of each sale (default 10).</td>
+</tr>
+<tr>
+<td><code class="notranslate">CURRENCY</code></td>
+<td>Checkout currency (default <code class="notranslate">usd</code>).</td>
+</tr>
+<tr>
+<td><code class="notranslate">GITHUB_CLIENT_ID</code> / <code class="notranslate">GITHUB_CLIENT_SECRET</code></td>
+<td>GitHub sign-in, which also enables verified ships and GitHub push XP.</td>
+</tr>
+<tr>
+<td><code class="notranslate">GITHUB_TOKEN</code></td>
+<td>Optional token for higher GitHub API limits when verifying repos.</td>
+</tr>
+<tr>
+<td><code class="notranslate">NTFY_BASE</code></td>
+<td>ntfy server for the optional ntfy push (default <code class="notranslate">https://ntfy.sh</code>).</td>
+</tr>
+<tr>
+<td><code class="notranslate">VAPID_SUBJECT</code></td>
+<td>Contact for Web Push (<code class="notranslate">mailto:you@example.com</code>). The VAPID key is generated once and stored in the database.</td>
+</tr>
+<tr>
+<td><code class="notranslate">PUSH_EXTRA_HOSTS</code></td>
+<td>Extra allowed push-service hosts (comma separated) beyond the built-in browser push services.</td>
+</tr>
+<tr>
+<td><code class="notranslate">SHIPHUB_OWNER</code></td>
+<td>Whose profile lists the vibeHQ build (default <code class="notranslate">juw12</code>).</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<p dir="auto">Tests: <code class="notranslate">python tests/test_hq.py</code> starts a throwaway server and checks the feed, likes, XP, friends,<br>
+chat/DMs, devices, <code class="notranslate">agent.py --once</code>, the command PIN lockout, demo purchases, the live stream,<br>
+sessions and password changes.</p>
+<h2 dir="auto">Run it locally</h2>
+<p dir="auto">Double-click <code class="notranslate">start.bat</code>, or:</p>
+<pre class="notranslate"><code class="notranslate">python server.py
+</code></pre>
+<p dir="auto">It opens <a href="http://127.0.0.1:8000" rel="nofollow">http://127.0.0.1:8000</a> (or the next free port). Demo login: <code class="notranslate">demo</code> / <code class="notranslate">demo1234</code>.<br>
+Nothing to install: locally it uses SQLite in <code class="notranslate">data/shiphub.db</code>.</p>
+<p dir="auto">Useful flags: <code class="notranslate">--host 0.0.0.0</code> (share on your Wi-Fi), <code class="notranslate">--reset</code> (wipe + re-seed), <code class="notranslate">--no-browser</code>.</p>
+<h2 dir="auto">Configuration</h2>
+<p dir="auto">Copy <code class="notranslate">config.example.env</code> to <code class="notranslate">config.env</code> and fill in what you need. Environment<br>
+variables override the file. The important ones:</p>
+<markdown-accessiblity-table><div class="scroll"><table role="table">
+<thead>
+<tr>
+<th>Variable</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">GITHUB_CLIENT_ID</code>, <code class="notranslate">GITHUB_CLIENT_SECRET</code></td>
+<td>Turns on "Continue with GitHub"</td>
+</tr>
+<tr>
+<td><code class="notranslate">DATABASE_URL</code></td>
+<td><code class="notranslate">postgresql://…</code> to use Postgres instead of SQLite (<code class="notranslate">pip install -r requirements.txt</code>)</td>
+</tr>
+<tr>
+<td><code class="notranslate">PUBLIC_URL</code></td>
+<td>Your public <code class="notranslate">https://…</code> address (secure cookies, GitHub redirects)</td>
+</tr>
+<tr>
+<td><code class="notranslate">SHIPHUB_ADMINS</code></td>
+<td>Comma-separated usernames that can delete any idea or comment</td>
+</tr>
+<tr>
+<td><code class="notranslate">SHIPHUB_DEMO</code></td>
+<td><code class="notranslate">1</code> locally; set <code class="notranslate">0</code> on a public site (sample accounts get random passwords, demo button hidden)</td>
+</tr>
+<tr>
+<td><code class="notranslate">SHIPHUB_MAX_UPLOAD_MB</code></td>
+<td>Upload limit for covers/avatars (default 5)</td>
+</tr>
+<tr>
+<td><code class="notranslate">TRUST_PROXY</code></td>
+<td><code class="notranslate">1</code> behind Fly/Render/nginx so rate limits see the real client IP</td>
+</tr>
+</tbody>
+</table></div></markdown-accessiblity-table>
+<h2 dir="auto">GitHub sign-in</h2>
+<ol dir="auto">
+<li>Go to <a href="https://github.com/settings/developers">https://github.com/settings/developers</a> → <strong>New OAuth App</strong>.</li>
+<li>Homepage URL: <code class="notranslate">http://127.0.0.1:8000</code> (or your public URL).</li>
+<li>Authorization callback URL: <code class="notranslate">http://127.0.0.1:8000/auth/github/callback</code><br>
+(deployed: <code class="notranslate">https://YOUR-DOMAIN/auth/github/callback</code>).</li>
+<li>Put the Client ID and a generated Client secret in <code class="notranslate">config.env</code> (or your host's secrets) and restart.</li>
+</ol>
+<p dir="auto">Signing in with GitHub creates an account (username from your GitHub login, plus<br>
+name, bio and avatar). Already have a password account? Use <strong>Edit profile →<br>
+Connect your GitHub account</strong> to link it.</p>
+<h2 dir="auto">Image uploads</h2>
+<p dir="auto">Cover images (button, drag-and-drop or paste in the composer) and profile photos.<br>
+The browser shrinks big photos to WebP before upload. The server accepts<br>
+PNG/JPEG/GIF/WebP only (checked by file signature, not the filename), stores them in<br>
+the database and serves them from <code class="notranslate">/uploads/…</code> with long cache headers and a<br>
+sandbox CSP.</p>
+<h2 dir="auto">Deploy</h2>
+<p dir="auto">The repo includes a <code class="notranslate">Dockerfile</code> (works on any Docker host), <code class="notranslate">render.yaml</code> and <code class="notranslate">fly.toml</code>.</p>
+<p dir="auto"><strong>Render (free to start, easiest):</strong> push this folder to a GitHub repo → Render<br>
+dashboard → <strong>New → Blueprint</strong> → pick the repo. It creates the web service and a<br>
+Postgres database. Then set <code class="notranslate">GITHUB_CLIENT_ID</code>, <code class="notranslate">GITHUB_CLIENT_SECRET</code> and<br>
+<code class="notranslate">SHIPHUB_ADMINS</code> in the service's Environment tab.<br>
+Notes: free web services sleep after ~15 min idle (first visit takes a moment);<br>
+free Postgres expires after 30 days unless you upgrade.</p>
+<p dir="auto"><strong>Fly.io (about $2–3/month, no free tier for new accounts):</strong></p>
+<pre class="notranslate"><code class="notranslate">fly launch --copy-config --no-deploy     # pick a unique app name
+fly volumes create shiphub_data --size 1
+fly secrets set GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=... SHIPHUB_ADMINS=yourname
+fly deploy
+</code></pre>
+<p dir="auto">This keeps SQLite on the volume. For Postgres instead, set a <code class="notranslate">DATABASE_URL</code> secret.</p>
+<p dir="auto">Health check: <code class="notranslate">GET /healthz</code>.</p>
+<h2 dir="auto">What's inside</h2>
+<ul dir="auto">
+<li><code class="notranslate">hq.py</code>: the HQ API (feed, ladder, friends, chat, devices/agents, market, push) on the same database.<br>
+<code class="notranslate">agent.py</code> is the device bridge; <code class="notranslate">stripe_client.py</code>, <code class="notranslate">github_client.py</code> and <code class="notranslate">webpush.py</code> are small stdlib clients.</li>
+<li><code class="notranslate">server.py</code>: Python standard-library HTTP server + JSON API. SQLite or Postgres (same SQL, rewritten for Postgres).<br>
+PBKDF2 passwords, HttpOnly session cookies, CSRF protection, rate limits on logins and writes, strict CSP, gzip + ETags.<br>
+Old SQLite databases are upgraded automatically on startup.</li>
+<li><code class="notranslate">static/</code>: framework-free single-page app (<code class="notranslate">index.html</code>, <code class="notranslate">app.js</code>, <code class="notranslate">hq.js</code>, <code class="notranslate">app.css</code>, <code class="notranslate">theme.js</code>),<br>
+plus <code class="notranslate">sw.js</code> and <code class="notranslate">manifest.webmanifest</code> so phones can install it and get push notifications.</li>
+</ul>
+<h2 dir="auto">Not done yet</h2>
+<p dir="auto">Password reset by email, reporting/flagging content, and email notifications.</p>
+<h2 dir="auto">License</h2>
+<p dir="auto">Released under the <a href="https://github.com/juw12/shiphub/blob/main/LICENSE">MIT License</a> © 2026 Juwen Lie. Contributions are welcome under the same license; see the <a href="https://github.com/juw12/.github/blob/main/CONTRIBUTING.md">contributing guide</a> and <a href="https://github.com/juw12/.github/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a>.</p>
+</main>
+<footer>
+This is the shiphub guide: the project's README, laid out to read on a phone and kept for when there is no connection.
+It is the README of 2026-11-04. shiphub itself is installed and run the way the guide says; the code is at
+<a href="https://github.com/juw12/shiphub">github.com/juw12/shiphub</a>.
+</footer>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
